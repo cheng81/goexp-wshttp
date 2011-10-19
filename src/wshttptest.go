@@ -11,9 +11,11 @@ import (
 
 var Host = flag.String("host","localhost","Host where the application will be served")
 var Port = flag.Int("port",8082,"Port where to serve the application")
+var Procs = flag.Int("procs",4,"Number of max Go Processors")
 
 func main() {
-	runtime.GOMAXPROCS(4)
+	flag.Parse()
+	runtime.GOMAXPROCS(*Procs)
 //	port := 8082
 //	host := "130.226.133.44:8082"
 	host := *(Host) + ":" + fmt.Sprint(*(Port))
