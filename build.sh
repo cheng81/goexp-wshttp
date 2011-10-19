@@ -1,11 +1,15 @@
+E=$1
+C=${1}g
+L=${1}l
+
 echo "cd-ing into src..." && \
 cd ./src
 echo "Building dynamichttp..." && \
-6g dynamichttp.go && \
+$C dynamichttp.go && \
 echo "Building wshttp..." && \
-6g wshttp.go connwrapper.go core.go httpchannel.go wshttpreq.go && \
+$C wshttp.go connwrapper.go core.go httpchannel.go wshttpreq.go && \
 echo "Building wshttptest..." && \
-6g wshttptest.go && 6l -o ./../wshttptest wshttptest.6 && \
+$C wshttptest.go && $L -o ./../wshttptest wshttptest.$E && \
 echo "Removing temp files" && \
-rm *.6
+rm *.$E
 echo "...all done"
