@@ -1,0 +1,48 @@
+body {
+	padding: 0;
+	border: 0;
+	margin: 0;
+}
+
+div#connid {
+	padding-left: .6em;
+	border: solid 1px #999999;
+	background-color: #efefef;
+}
+
+div#user_info {
+	padding-left: .6em;
+	border: solid 1px #999999;
+}
+
+div#connections {
+	margin-top: 1em;
+	margin-left: .5em;
+	width: 98%;
+}
+
+div.connection {
+	float: left;
+	border: solid 1px #999999;
+	margin-left: .5em;
+}
+
+div.connection p.username {
+	margin:0;
+	padding:0;
+	border-bottom: solid 1px #ccc;
+	width: 100%;
+	background-color: #efefef;
+}
+div.connection p.history {
+	margin-left: .5em;
+	font-family: monospace;
+	font-size: 80%;
+}
+div.connection input.inputmsg, div#user_info input#nick {
+	border: solid 1px #ccc;
+	font-family: monospace;
+}
+div.connection input.sendbtn, div#user_info input#go {
+	border: solid 1px #ccc;
+}

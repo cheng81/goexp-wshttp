@@ -1,0 +1,262 @@
+<html>
+<head>
+	<title>Test websocket</title>
+	<link rel="stylesheet" type="text/css" href="style.css"/>
+	<script type="text/javascript" src="jquery.js"></script>
+	<script type="text/javascript" src="jquery.json.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('#template_conn').css('display','none')
+	var appStatus = function(str) {
+		console.log(str)
+	}
+	var ws = false
+	connid = false
+	user = false
+	dispatch = function(data) {
+		if(connid==false) {
+			appStatus("connection id: "+data)
+			connid=data
+			$('#connid').text(connid)
+			onConnectionSet()
+//			init()
+			return
+		}
+		if(!data||data==true||data.Payload==true||data.Payload=="true"){return}
+
+		if(data.IsReq==false) {
+			appStatus("Got some response " + data.Payload)
+
+//			return
+		}
+		var p = $.parseJSON(data.Payload)
+		var handler = handlers[p.URL.Path]
+		resp = "false"
+		if(handler == null) {
+			console.log("Unknown URL "+p.URL.Path)
+		} else {
+			resp = handler(p)
+		}
+		if(data.IsReq) {
+			ws.send($.toJSON({
+				"Id":data.Id,"IsReq":false,
+				"Payload":resp
+			}))
+		}
+		// appStatus("rendering response for id " + data.Id)
+		// ws.send($.toJSON({
+		// 			"Id": data.Id,
+		// 			"IsReq": false,
+		// 			"Payload": render(connid,$('#echome').val())
+		// 		}))
+	}
+
+	var handlers = {}
+	var register_callback = function(url,fn) {
+		handlers[url] = fn
+	}
+
+	var body_handler = function(fn) {
+		return function(p) {
+			if(p.Body) {
+				appStatus("Body "+p.Body)
+				var body = ""
+				for(var i in p.Body){ body+=String.fromCharCode(p.Body[i]) }
+				return fn(body,p)
+			}
+			return ""
+		}
+	}
+
+	var bind_url = function(methods,url) {
+		q = "connid="+connid+"&methods="+methods+"&url="+url
+		ws.send($.toJSON({
+			"Id":"-1","IsReq":true,
+			"Payload":$.toJSON({
+				"Method":"POST","URL":"/meta/wshttp?"+q
+			})
+		}))
+	}
+	var bind_url_body = function(methods,url,fn) {
+		bind_url(methods,url)
+		register_callback(url,body_handler(fn))
+	}
+	var bind_url_empty = function(methods,url,fn) {
+		bind_url(methods,url)
+		register_callback(url,fn)
+	}
+	var onConnectionSet = function() {
+		bind_url_empty("GET","/conninfo/"+connid,function(){
+			return $.toJSON({'user':user})
+		})
+		bind_url_body("POST","/conn/"+connid+"/msg",function(body){
+			console.log(body)
+			msg = $.parseJSON(body)
+			appendToChat(msg.conn,msg.from,msg.msg)
+//			hist = $('#connection_'+msg.conn+' > .history')
+//			hist.append('<br/>'+msg.from+'> '+msg.msg)
+			return "true"
+		})
+		bind_url_body("POST","/meta/wsconnections",function(body,data){
+			console.log(body)
+			info = $.parseJSON(body)
+			if(data.Method=="POST") {
+				for(var cid in info) {
+					console.log("new connection "+info[cid].connid)
+					new_connection(info[cid].connid)
+				}
+			}else{
+				for(var cid in info) {
+					console.log("connection "+info[cid].connid+" gone")
+					rm_connection(info[cid].connid)
+				}
+			}
+		})
+	}
+	var appendToChat = function(id,from,msg) {
+		$('#connection_'+id+' > .history').append('<br/>'+from+'> '+msg)
+	}
+	var init = function(nick) {
+		appStatus("Initializing...")
+		user=nick
+		ws = new WebSocket("ws://"+window.location.host+"/meta/wsconn")
+		ws.onopen = function(evt) {
+			appStatus("ws connected")
+		}
+		ws.onclose = function(evt) {
+			appStatus("ws closed")
+		}
+		ws.onmessage = function(evt) {
+			appStatus("Recvd.raw:"+evt.data)
+			dispatch($.parseJSON(evt.data))
+		}
+		ws.onerror = function(evt) {
+			appStatus("error")
+			appStatus(evt.data)
+		}
+
+		// q = "connid="+connid+"&methods=POST&url=/conn/"+connid+"/msg"
+		// ws.send($.toJSON({
+		// 	"Id":"-1","IsReq":true,
+		// 	"Payload":$.toJSON({
+		// 		"Method":"POST",
+		// 		"URL": "/meta/wshttp?"+q
+		// 	})
+		// }))
+
+	}
+
+	$('#go').click(function(){
+		var u = $('#nick').val()
+		init( u )
+		$('#user_info').html("<span>"+u+"</span>")
+	})
+
+	var rm_connection = function(remoteconn) {
+		var prefix = '#connection_'+remoteconn
+		$(prefix+' > .history').append('<br/>Gone.')
+		$('#go_'+remoteconn).attr('disabled',true)//.css('display','none')//.enabled(false)
+		$('#inp_'+remoteconn).attr('disabled',true)
+	}
+	var new_connection = function(newconnid) {
+		if(newconnid==connid) {console.log("It's my connection",newconnid,connid); return}
+		var c = $('#connection_'+newconnid)
+		if(c!=null&&c!=undefined&&c.length>0){console.log(newconnid+' connection already made',c); return}
+		var tmpl = $('#template_conn').html()
+		tmpl = tmpl.replace(/<!--/g,'').replace(/-->/g,'')
+		tmpl = tmpl.replace(/\${connid}/g,newconnid)
+		window.setTimeout(function(){
+			$.getJSON('/conninfo/'+newconnid, function(data){
+				var c = $('#connection_'+newconnid)
+				if(c!=null&&c!=undefined&&c.length>0){console.log(newconnid+' connection already made',c); return}
+				if(data && data.user) {
+					console.log("Got response",data,newconnid)
+					tmpl = tmpl.replace(/\${username}/g,data.user)
+					$('#connections').append(tmpl)
+					$('#inp_'+newconnid).keypress(function(ev){
+						if (ev.which==13) {
+							ev.preventDefault()
+							$('#go_'+newconnid).click()
+						}
+					})
+					$('#go_'+newconnid).click(function(){
+						var msg = $('#inp_'+newconnid).val()
+						$('#inp_'+newconnid).val("")
+						to_send = {'from': user, 'conn': connid, 'msg':msg}
+						console.log("Sending message to connection " + newconnid)
+						appendToChat(newconnid,'me',msg)
+						ws.send($.toJSON({
+							"Id":"-1","IsReq":true,
+							"Payload":$.toJSON({
+								"Method":"POST",
+								"URL": "/conn/"+newconnid+"/msg",
+								"Body": $.toJSON(to_send)
+							})
+						}))
+					})
+				} else {
+					console.log("Wrong response",data)
+				}
+			})
+		},1000)
+	}
+})
+</script>
+</head>
+<body>
+<div id="connid">..establish connection..</div>
+
+<div id="user_info">
+Enter nickname: <input type="text" id="nick" />
+<input type="button" id="go" value="Ok" />
+</div>
+
+<div id="connections">
+<!--<div class="connection">
+<p class="username">Bla</p>
+<p class="history">
+<br/>bla> Hello
+<br/>bla> wzp?
+</p>
+<br/>
+<input type="text" class="inputmsg"/>
+<input type="button" class="sendbtn"value="Send"/>
+</div>
+<div class="connection">
+<p class="username">Bla</p>
+<p class="history">
+<br/>bla> Hello
+<br/>bla> wzp?
+</p>
+<br/>
+<input type="text" class="inputmsg"/>
+<input type="button" class="sendbtn"value="Send"/>
+</div>
+<div class="connection">
+<p class="username">Bla</p>
+<p class="history">
+<br/>bla> Hello
+<br/>bla> wzp?
+</p>
+<br/>
+<input type="text" class="inputmsg"/>
+<input type="button" class="sendbtn"value="Send"/>
+</div>-->
+
+</div>
+
+
+<div id="template_conn">
+<!--
+<div class="connection" id="connection_${connid}">
+<p class="username">${username}</p>
+<p class="history"></p>
+<br/>
+<input type="text" class="inputmsg" id="inp_${connid}"/>
+<input type="button" class="sendbtn" id="go_${connid}" value="Send"/>
+</div>
+-->
+</div>
+
+</body>
+</html>

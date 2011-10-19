@@ -1,0 +1,224 @@
+<html>
+<head>
+	<title>Test websocket</title>
+	<script type="text/javascript" src="jquery.js"></script>
+	<script type="text/javascript" src="jquery.json.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+	$('#template').css('display','none')
+	var txt = $('#template').html()
+	console.log("template html",txt)
+	var appStatus = function(str) {
+		console.log(str)
+		//status.html( status.html() + "<br/>" + str )
+	}
+	ws = new WebSocket("ws://localhost:8082/meta/wsconn")
+	ws.onopen = function(evt) {
+		appStatus("ws connected")
+	}
+	ws.onclose = function(evt) {
+		appStatus("ws closed")
+	}
+	ws.onmessage = function(evt) {
+		//$('#echoed').html( $('#echoed').html() + "<br/>" + evt.data )
+		appStatus("Recvd.raw:"+evt.data)
+		dispatch($.parseJSON(evt.data))
+	}
+	ws.onerror = function(evt) {
+		appStatus("error")
+		appStatus(evt.data)
+	}
+	connid = false
+	dispatch = function(data) {
+		if(connid==false) {
+			appStatus("connection id: "+data)
+			connid=data
+			$('#connid').text(connid)
+			init()
+			return
+		}
+		if(data==true||data.Payload==true||data.Payload=="true"){return}
+
+		if(data.IsReq==false) {
+			appStatus("Got some response " + data.Payload)
+			return
+		}
+		appStatus("rendering response for id " + data.Id)
+		ws.send($.toJSON({
+					"Id": data.Id,
+					"IsReq": false,
+					"Payload": render(connid,$('#echome').val())
+				}))
+	}
+	render = function(connid,current) {
+		tmpl = $('#template').html()
+		tmpl = tmpl.replace(/<!--/g,'').replace(/-->/g,'')
+		tmpl = tmpl.replace(/\${connid}/g,connid)
+		tmpl = tmpl.replace(/\${current}/g,current)
+		console.log("template rendered",tmpl)
+		return tmpl
+	}
+	initPost = function() {
+		$('#echome').change(function(){
+			var newv = $(this).val()
+			appStatus("send update "+newv)
+			ws.send($.toJSON({
+				"Id":"-1","IsReq":true,
+				"Payload":$.toJSON({
+					"Method":"POST",
+					"URL": "/seeme/"+connid,
+					"Body": newv
+				})
+			}))
+			// ws.send($.toJSON({
+			// 	"Id":"-1",
+			// 	"IsReq":true,
+			// 	"Payload":$.toJSON({
+			// 			"Method": "POST",
+			// 			"URL": {
+			// 				"Raw": "/seeme/"+connid,
+			// 				"RawPath": "/seeme/"+connid,
+			// 				"Path": "/seeme/"+connid
+			// 			},
+			// 			"Proto": "HTTP/1.1",
+			// 			"ProtoMajor": 1,
+			// 			"ProtoMinor": 1,
+			// 			"Header": {
+			// 				"Accept": ["text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"],
+			// 				"Accept-Charset": ["ISO-8859-1,utf-8;q=0.7,*;q=0.3"],
+			// 				"Accept-Encoding": ["gzip,deflate,sdch"],
+			// 				"Accept-Language": ["en-US,en;q=0.8"],
+			// 				"User-Agent": ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.202 Safari/535.1"]
+			// 			},
+			// 			"Body": newv,
+			// 			"Content-Length": newv.length,
+			// 			"TransferEncoding": [],
+			// 			"Close": true,
+			// 			"Host": "localhost:8082",
+			// 			"RemoteAddr": "wshttp:10000",
+			// 	})
+			// }))
+		})
+	}
+	init = function() {
+		appStatus("Initializing...")
+		initPost()
+		q = "connid="+connid+"&methods=GET&url=/seeme/"+connid
+		ws.send($.toJSON({
+			"Id":"-1","IsReq":true,
+			"Payload":$.toJSON({
+				"Method":"POST",
+				"URL": "/meta/wshttp?"+q
+			})
+		}))
+		// ws.send($.toJSON({
+		// 			"Id":"-1",//required, but since it's a request, it will be overwritten
+		// 			"IsReq":true,
+		// 			"Payload":$.toJSON({
+		// 				"Method": "POST",
+		// 				"URL": {
+		// 					"Raw": "/meta/wshttp?"+q,
+		// 					"RawPath": "/meta/wshttp?"+q,
+		// 					"Path": "/meta/wshttp",
+		// 					"RawQuery": q
+		// 				},
+		// 				"Proto": "HTTP/1.1",
+		// 				"ProtoMajor": 1,
+		// 				"ProtoMinor": 1,
+		// 				"Header": {
+		// 					"Accept": ["text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"],
+		// 					"Accept-Charset": ["ISO-8859-1,utf-8;q=0.7,*;q=0.3"],
+		// 					"Accept-Encoding": ["gzip,deflate,sdch"],
+		// 					"Accept-Language": ["en-US,en;q=0.8"],
+		// 					"User-Agent": ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.202 Safari/535.1"]
+		// 				},
+		// 	//			"Body": {"Reader":{"R":{},"N":0}},
+		// 				"Content-Length": 0,
+		// 				"TransferEncoding": [],
+		// 				"Close": true,
+		// 				"Host": "localhost:8082",
+		// 				"RemoteAddr": "wshttp:10000",
+		// 			})}))
+	}
+	// $('#doecho').click(function(){
+	// 	appStatus("sending " + $('#echome').val())
+	// 	ws.send($('#echome').val())
+	// })
+})
+</script>
+</head>
+<body>
+<div id="connid">..establish connection..</div>
+<input type="text" id="echome" />
+<!-- <div id="echoed"> -->
+<div id="template">
+<!--
+<html><head><title>Realtime status update ${connid}</title>
+	<script type="text/javascript" src="/jquery.js"></script>
+	<script type="text/javascript" src="/jquery.json.js"></script>
+	<script type="text/javascript">
+$(document).ready(function(){
+	var appStatus = function(str) {
+		console.log(str)
+	}
+	ws = new WebSocket("ws://localhost:8082/meta/wsconn")
+	ws.onopen = function(evt) {
+		appStatus("ws connected")
+	}
+	ws.onclose = function(evt) {
+		appStatus("ws closed")
+	}
+	ws.onmessage = function(evt) {
+		//$('#echoed').html( $('#echoed').html() + "<br/>" + evt.data )
+		appStatus("Recvd.raw:"+evt.data)
+		dispatch($.parseJSON(evt.data))
+	}
+	ws.onerror = function(evt) {
+		appStatus("error")
+		appStatus(evt.data)
+	}
+	connid = false
+	dispatch = function(data) {
+		if(connid==false) {
+			appStatus("connection id: "+data)
+			connid=data
+			init()
+			return
+		}
+		console.log("Recvd",data)
+		if(data==true||data.Payload==true||data.Payload=="true"){return}
+		var p = $.parseJSON(data.Payload)
+		if(p.Body) {
+			appStatus("Body "+p.Body)
+			var news = ""
+			for(var i in p.Body){ news+=String.fromCharCode(p.Body[i]) }
+			$('#statusupd').text(news)
+		}
+		ws.send($.toJSON({
+					"Id": data.Id,
+					"IsReq": false,
+					"Payload": "ok"
+				}))
+	}
+	init = function() {
+		appStatus("Initializing...")
+		q = "connid="+connid+"&methods=POST&url=/seeme/"+${connid}
+		ws.send($.toJSON({
+			"Id":"-1","IsReq":true,
+			"Payload":$.toJSON({
+				"Method":"POST",
+				"URL":"/meta/wshttp?"+q
+			})
+		}))
+	}
+})
+	</script>
+</head>
+<body>
+Status: <span id="statusupd">${current}</span>
+</body>
+</html>
+-->
+</div>
+</body>
+</html>

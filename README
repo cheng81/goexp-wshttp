@@ -1,0 +1,38 @@
+    Experimental HTTP over WebSocket Golang package
+======================================================
+
+Define callbacks for urls in your javascript,
+and using the wshttp package when one of
+those urls are requested, the request is 
+passed to the browser that registered a 
+callback for it.
+
+Notes
+=====
+
+Go version: it compiles with the current (19/10/2011)
+ Go sources
+
+Stability: it is not stable. Simply put, don't use it.
+I hacked up this thing in about 2 days, without
+thinking about it too much. This is also reflected
+into the source - which are a completely mess.
+
+Why?
+====
+
+For fun. I wanted to learn a bit of Go, and thought
+that it might be a funny pet project.
+
+Future?
+=======
+
+Well, when Go will be more stable, I might think of
+doing this thing properly. At the beginning I wanted
+to use Socket.io (using the go-socketio package),
+but I did not managed to make it work. I suppose that
+when Go will be more stable, also the socket.io port
+will be. I'm looking forward for that to happen.
+And then again, I did it for fun, if You have a good
+idea of actually how to use http over websocket,
+drop me a message!
